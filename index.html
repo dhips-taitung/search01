@@ -1,133 +1,144 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-TW">
 <head>
 <meta charset="UTF-8" />
-<title>家長資料查詢系統</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>學生資料查詢系統</title>
+
+<style>
+body { font-family: sans-serif; padding: 20px; }
+table { border-collapse: collapse; margin-top: 10px; }
+th, td { padding: 8px; border: 1px solid #ccc; }
+#btnQuery { cursor: pointer; }
+</style>
 
 <script>
 
-// 🔹 換成你的 Web App URL
 var GAS_URL = "https://script.google.com/macros/s/AKfycbwwPt4QXfhij0Vc2xnUXXhyeG_EHfjIO8CuvG-6wnCxcMztlCji8ONatc5JCsU6NkYv/exec";
 
-// =======================
-// 驗證碼處理
-// =======================
-function getAuthCode(){
+// =====================
+// 驗證碼
+// =====================
+function getAuthCode() {
   let code = sessionStorage.getItem("authCode");
-  if(!code){
+  if (!code) {
     code = prompt("請輸入驗證碼：");
-    if(!code) return null;
-    sessionStorage.setItem("authCode",code);
+    if (!code) return null;
+    sessionStorage.setItem("authCode", code);
   }
   return code;
 }
 
-// =======================
-// 日期格式化
-// =======================
-Date.prototype.format = function (fmt) {
-    var o = {
-        "M+": this.getMonth() + 1,
-        "d+": this.getDate(),
-        "H+": this.getHours(),
-        "m+": this.getMinutes(),
-        "s+": this.getSeconds()
-    };
-    if (/(y+)/.test(fmt))
-        fmt = fmt.replace(RegExp.$1,
-        (this.getFullYear() + "").substr(4 - RegExp.$1.length));
-    for (var k in o)
-        if (new RegExp("(" + k + ")").test(fmt))
-            fmt = fmt.replace(RegExp.$1,
-            RegExp.$1.length == 1 ? o[k] :
-            ("00" + o[k]).substr(("" + o[k]).length));
-    return fmt;
-};
-
-var dateReviver = function (key,value){
-    if(typeof value==="string"){
-        var a=/^(\d{4})-(\d{2})-(\d{2})T/.exec(value);
-        if(a){
-            return new Date(value).format("yyyy-MM-dd");
-        }
-    }
-    return value;
-};
-
-// =======================
-// 查詢功能
-// =======================
-function bestdaylong_show(str){
-
-    if(!str || str.trim()==""){
-        alert("請輸入關鍵字");
-        return;
-    }
-
-    var code = getAuthCode();
-    if(!code) return;
-
-    var get_url = GAS_URL +
-        "?uid=" + encodeURIComponent(str) +
-        "&code=" + encodeURIComponent(code);
-
-    fetch(get_url)
-    .then(res=>res.text())
-    .then(text=>{
-
-        var obj = JSON.parse(text,dateReviver);
-
-        if(obj.auth===false){
-            alert(obj.message);
-            sessionStorage.removeItem("authCode");
-            return;
-        }
-
-        if(obj.ok===false){
-            alert(obj.message);
-            return;
-        }
-
-        var html='<table border=1 width=100%>';
-
-        for(var i=0;i<obj.length;i++){
-            html+='<tr>';
-            for(var j=0;j<obj[i].data.length;j++){
-                html+='<td>'+obj[i].data[j]+'</td>';
-            }
-            html+='</tr>';
-        }
-
-        html+='</table>';
-
-        document.getElementById("order_status").innerHTML=html;
-
-        if(obj.length==1){
-            alert("查無資料");
-        }
-
-    })
-    .catch(err=>{
-        alert("系統連線錯誤："+err.message);
-    });
+// =====================
+// 生日格式 YYYY/MM/DD
+// =====================
+function formatDate(dateStr) {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  if (isNaN(d)) return dateStr;
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return y + "/" + m + "/" + day;
 }
+
+// =====================
+// 查詢
+// =====================
+function bestdaylong_show(str) {
+
+  document.getElementById("order_status").innerHTML = "";
+
+  if (!str || str.trim()==="") {
+    alert("請輸入關鍵字");
+    return;
+  }
+
+  const code = getAuthCode();
+  if (!code) return;
+
+  const get_url = GAS_URL + "?uid=" +
+                  encodeURIComponent(str) +
+                  "&code=" +
+                  encodeURIComponent(code);
+
+  fetch(get_url)
+  .then(r=>r.text())
+  .then(text=>{
+
+    let obj = JSON.parse(text);
+
+    if (obj.auth===false) {
+      alert(obj.message);
+      sessionStorage.removeItem("authCode");
+      return;
+    }
+
+    if (obj.ok===false) {
+      alert(obj.message);
+      return;
+    }
+
+    var html = '<table width="100%">';
+    for (var i=0;i<obj.length;i++) {
+
+      var tag = (i===0) ? "th" : "td";
+      var bg = (i===0) ? ' style="background:#eee;"' : '';
+
+      html += "<tr"+bg+">";
+
+      for (var j=0;j<obj[i].data.length;j++) {
+
+        let value = obj[i].data[j];
+
+        // 第6欄生日
+        if (j===5 && i!==0) {
+          value = formatDate(value);
+        }
+
+        html += "<"+tag+">"+value+"</"+tag+">";
+      }
+
+      html += "</tr>";
+    }
+
+    html += "</table>";
+
+    document.getElementById("order_status").innerHTML = html;
+
+    if (obj.length<=1) {
+      document.getElementById("order_status").innerHTML += "<p>查無資料</p>";
+    }
+
+  })
+  .catch(err=>{
+    alert("系統連線失敗："+err.message);
+  });
+}
+
+window.addEventListener("DOMContentLoaded",function(){
+  var input=document.getElementById("uid");
+  input.addEventListener("keydown",function(e){
+    if(e.key==="Enter") bestdaylong_show(input.value);
+  });
+});
 
 </script>
 </head>
 
 <body>
 
-<h3>家長資料查詢系統</h3>
+<h3>學生資料查詢系統</h3>
 
 關鍵字：
-<input type="text" id="uid"
- onkeydown="if(event.key==='Enter')bestdaylong_show(uid.value);" />
+<input type="text" id="uid" placeholder="請輸入關鍵字" />
 
-<input type="button" value="查詢"
- onclick="bestdaylong_show(uid.value);" />
+<input type="button"
+       id="btnQuery"
+       value="查詢"
+       onclick="bestdaylong_show(document.getElementById('uid').value);" />
 
-<hr>
-
+<hr/>
 <div id="order_status"></div>
 
 </body>
